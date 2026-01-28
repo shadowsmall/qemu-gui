@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🖥️ QEMU GUI Manager Pro
+# 🖥️ QEMU GUI 
 **La virtualisation simplifiée. La performance du C++ alliée à l'élégance du Python.**
 
 [![Language - Python](https://img.shields.io/badge/Interface-Python_3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
