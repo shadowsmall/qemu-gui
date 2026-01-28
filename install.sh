@@ -23,8 +23,8 @@ fi
 
 # 2. Compilation du moteur C++
 echo -e "${GREEN}[2/5] Compilation du moteur...${NC}"
-if [ -f "$BASE_DIR/qemu_launcher.cpp" ]; then
-    g++ "$BASE_DIR/qemu_launcher.cpp" -o "$BASE_DIR/qemu_launcher"
+if [ -f "$BASE_DIR/usr/local/bin/qemu_launcher.cpp" ]; then
+    g++ "$BASE_DIR/usr/local/bin/qemu_launcher.cpp" -o "$BASE_DIR/qemu_launcher"
 else
     echo -e "${RED}Erreur : qemu_launcher.cpp introuvable dans $BASE_DIR${NC}"
     exit 1
@@ -32,8 +32,8 @@ fi
 
 # 3. Installation des fichiers dans /usr/local/bin
 echo -e "${GREEN}[3/5] Installation des exécutables...${NC}"
-sudo cp "$BASE_DIR/qemu_launcher" /usr/local/bin/qemu_launcher.cpp
-sudo cp "$BASE_DIR/quemugui.py" /usr/local/bin/qemugui
+sudo cp "$BASE_DIR/usr/local/bin/qemu_launcher.cpp" /usr/local/bin/qemu_launcher.cpp
+sudo cp "$BASE_DIR/usr/local/bin/qemugui" /usr/local/bin/qemugui
 sudo chmod +x /usr/local/bin/qemugui
 
 # 4. Création du raccourci bureau universel
