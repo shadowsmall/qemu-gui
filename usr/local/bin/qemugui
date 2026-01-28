@@ -23,7 +23,7 @@ class QemuStation(QWidget):
         conn.close()
 
     def initUI(self):
-        self.setWindowTitle('QEMU Manager Pro - Advanced Edition')
+        self.setWindowTitle('QEMU-gui')
         self.setMinimumSize(1100, 800)
         self.setStyleSheet("background-color: #121212; color: #e0e0e0; font-family: sans-serif;")
 
