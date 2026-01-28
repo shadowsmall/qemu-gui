@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+import sys, subprocess, os, sqlite3
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
+                             QLabel, QPushButton, QFileDialog, QListWidget,
+                             QSpinBox, QGroupBox, QLineEdit, QTextEdit, QCheckBox, QComboBox)
+
+class QemuStation(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.db_path = os.path.expanduser("~/.qemu_pro.db")
+        self.init_db()
+        self.qcow2_path = ""
+        self.iso_path = ""
+        self.initUI()
+        self.load_library()
+
+    def init_db(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS vms 
+            (id INTEGER PRIMARY KEY, name TEXT, qcow2 TEXT, iso TEXT, ram INTEGER, cpu INTEGER, uefi INTEGER, kbd TEXT)''')
+        conn.commit()
+        conn.close()
+
+    def initUI(self):
+        self.setWindowTitle('QEMU Manager Pro - Advanced Edition')
+        self.setMinimumSize(1100, 800)
+        self.setStyleSheet("background-color: #121212; color: #e0e0e0; font-family: sans-serif;")
+
+        main_layout = QHBoxLayout()
+
+        # --- GAUCHE (Bibliothèque) ---
+        left_panel = QVBoxLayout()
+        left_panel.addWidget(QLabel("BIBLIOTHEQUE"))
+        self.vm_list = QListWidget()
+        self.vm_list.setStyleSheet("background-color: #1e1e1e; border: 1px solid #333;")
+        self.vm_list.itemClicked.connect(self.load_selected_vm)
+        left_panel.addWidget(self.vm_list)
+        left_panel.addWidget(QPushButton("Supprimer le profil", clicked=self.delete_vm, styleSheet="background-color: #442222;"))
+        main_layout.addLayout(left_panel, 1)
+
+        # --- DROITE (Configuration) ---
+        right_panel = QVBoxLayout()
+
+        # Nouveau Disque
+        tool_box = QGroupBox("Outils Disque")
+        tool_lay = QHBoxLayout()
+        self.new_size_in = QSpinBox(); self.new_size_in.setRange(1, 2000); self.new_size_in.setValue(25)
+        tool_lay.addWidget(QLabel("Taille (Go) :")); tool_lay.addWidget(self.new_size_in)
+        tool_lay.addWidget(QPushButton("CREER QCOW2", clicked=self.create_new_qcow2, styleSheet="color: #4ec9b0;"))
+        tool_box.setLayout(tool_lay); right_panel.addWidget(tool_box)
+
+        # Config Avancée
+        config_box = QGroupBox("Parametres de la Machine")
+        config_lay = QVBoxLayout()
+        
+        self.in_name = QLineEdit(); self.in_name.setPlaceholderText("Nom de la VM...")
+        config_lay.addWidget(self.in_name)
+
+        f_lay = QHBoxLayout()
+        f_lay.addWidget(QPushButton("Fichier QCOW2", clicked=self.select_qcow2))
+        f_lay.addWidget(QPushButton("Image ISO", clicked=self.select_iso))
+        config_lay.addLayout(f_lay)
+        
+        self.label_info = QLabel("Aucun fichier choisi")
+        self.label_info.setStyleSheet("color: #ce9178;")
+        config_lay.addWidget(self.label_info)
+
+        # Options UEFI et Clavier
+        opt_lay = QHBoxLayout()
+        self.check_uefi = QCheckBox("Activer UEFI (OVMF)")
+        self.combo_kbd = QComboBox()
+        self.combo_kbd.addItems(["fr", "en-us", "be"])
+        opt_lay.addWidget(self.check_uefi)
+        opt_lay.addWidget(QLabel("Clavier :"))
+        opt_lay.addWidget(self.combo_kbd)
+        config_lay.addLayout(opt_lay)
+
+        res_lay = QHBoxLayout()
+        self.ram_in = QSpinBox(); self.ram_in.setRange(512, 64000); self.ram_in.setValue(4096)
+        self.cpu_in = QSpinBox(); self.cpu_in.setRange(1, 16); self.cpu_in.setValue(4)
+        res_lay.addWidget(QLabel("RAM (Mo) :")); res_lay.addWidget(self.ram_in)
+        res_lay.addWidget(QLabel("CPU :")); res_lay.addWidget(self.cpu_in)
+        config_lay.addLayout(res_lay)
+
+        config_lay.addWidget(QPushButton("ENREGISTRER LE PROFIL", clicked=self.save_vm, styleSheet="background-color: #0e639c; height: 35px;"))
+        config_box.setLayout(config_lay); right_panel.addWidget(config_box)
+
+        self.log = QTextEdit(readOnly=True); self.log.setStyleSheet("background-color: #000; color: #0f0;")
+        right_panel.addWidget(self.log)
+
+        self.btn_run = QPushButton("LANCER LA VM", clicked=self.run_vm)
+        self.btn_run.setFixedHeight(60); self.btn_run.setStyleSheet("background-color: #2ea043; font-weight: bold;")
+        right_panel.addWidget(self.btn_run)
+
+        main_layout.addLayout(right_panel, 2)
+        self.setLayout(main_layout)
+
+    # --- FONCTIONS ---
+    def create_new_qcow2(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Sauvegarder QCOW2", "", "QCOW2 (*.qcow2)")
+        if path:
+            subprocess.run(["qemu-img", "create", "-f", "qcow2", path, f"{self.new_size_in.value()}G"])
+            self.qcow2_path = path; self.label_info.setText(os.path.basename(path))
+
+    def select_qcow2(self):
+        f, _ = QFileDialog.getOpenFileName(self, "Choisir QCOW2", "", "Images (*.qcow2 *.img)")
+        if f: self.qcow2_path = f; self.label_info.setText(os.path.basename(f))
+
+    def select_iso(self):
+        f, _ = QFileDialog.getOpenFileName(self, "Choisir ISO", "", "ISO (*.iso)")
+        if f: self.iso_path = f; self.log.append(f"ISO: {os.path.basename(f)}")
+
+    def save_vm(self):
+        name = self.in_name.text()
+        if not name or not self.qcow2_path: return
+        uefi_val = 1 if self.check_uefi.isChecked() else 0
+        conn = sqlite3.connect(self.db_path); cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO vms (name, qcow2, iso, ram, cpu, uefi, kbd) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (name, self.qcow2_path, self.iso_path, self.ram_in.value(), self.cpu_in.value(), uefi_val, self.combo_kbd.currentText()))
+        conn.commit(); conn.close(); self.load_library()
+
+    def load_library(self):
+        self.vm_list.clear()
+        conn = sqlite3.connect(self.db_path); cursor = conn.cursor()
+        cursor.execute("SELECT name FROM vms"); [self.vm_list.addItem(r[0]) for r in cursor.fetchall()]; conn.close()
+
+    def load_selected_vm(self, item):
+        conn = sqlite3.connect(self.db_path); cursor = conn.cursor()
+        cursor.execute("SELECT * FROM vms WHERE name=?", (item.text(),))
+        v = cursor.fetchone(); conn.close()
+        if v:
+            self.in_name.setText(v[1]); self.qcow2_path = v[2]; self.iso_path = v[3]
+            self.ram_in.setValue(v[4]); self.cpu_in.setValue(v[5])
+            self.check_uefi.setChecked(v[6] == 1); self.combo_kbd.setCurrentText(v[7])
+            self.label_info.setText(os.path.basename(self.qcow2_path))
+
+    def delete_vm(self):
+        if self.vm_list.currentItem():
+            conn = sqlite3.connect(self.db_path); cursor = conn.cursor()
+            cursor.execute("DELETE FROM vms WHERE name=?", (self.vm_list.currentItem().text(),))
+            conn.commit(); conn.close(); self.load_library()
+
+    def run_vm(self):
+        if not self.qcow2_path: return
+        uefi = "1" if self.check_uefi.isChecked() else "0"
+        iso = self.iso_path if self.iso_path else "None"
+        cmd = ["./qemu_launcher", self.qcow2_path, str(self.ram_in.value()), str(self.cpu_in.value()), iso, uefi, self.combo_kbd.currentText()]
+        self.log.append(f"Lancement de {self.in_name.text()}...")
+        subprocess.Popen(cmd)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv); ex = QemuStation(); ex.show(); sys.exit(app.exec())
