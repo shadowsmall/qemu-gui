@@ -1,45 +1,40 @@
 #!/bin/bash
 
-# Couleurs pour le terminal
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
-NC='\033[0m' # Pas de couleur
+NC='\033[0m'
+
+# On détecte le dossier où se trouve le script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 echo -e "${BLUE}=== Installation de QEMU GUI ===${NC}"
+echo -e "Dossier source : ${SCRIPT_DIR}"
 
-# 1. Détection du gestionnaire de paquets et installation des dépendances
+# 1. Dépendances
 echo -e "${GREEN}[1/5] Installation des dépendances...${NC}"
-if [ -f /etc/debian_version ]; then
-    sudo apt update && sudo apt install -y python3-pyqt6 qemu-system-x86 qemu-utils ovmf g++
-elif [ -f /etc/arch-release ]; then
-    sudo pacman -Sy --needed python-pyqt6 qemu-full edk2-ovmf gcc
-elif [ -f /etc/fedora-release ]; then
-    sudo dnf install -y python3-pyqt6 qemu-kvm qemu-img edk2-ovmf gcc-c++
-else
-    echo -e "${RED}Distribution non reconnue. Veuillez installer manuellement : qemu, pyqt6, g++, ovmf.${NC}"
-fi
+sudo apt update && sudo apt install -y python3-pyqt6 qemu-system-x86 qemu-utils ovmf g++
 
-# 2. Compilation du moteur C++
-echo -e "${GREEN}[2/5] Compilation du moteur haute performance...${NC}"
-g++ qemu_launcher.cpp -o qemu_launcher
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Erreur de compilation !${NC}"
+# 2. Compilation (On pointe vers le chemin absolu du fichier)
+echo -e "${GREEN}[2/5] Compilation du moteur...${NC}"
+if [ -f "$SCRIPT_DIR/qemu_launcher.cpp" ]; then
+    g++ "$SCRIPT_DIR/qemu_launcher.cpp" -o "$SCRIPT_DIR/qemu_launcher"
+else
+    echo -e "${RED}Erreur : qemu_launcher.cpp est introuvable dans $SCRIPT_DIR${NC}"
     exit 1
 fi
 
-# 3. Installation des binaires
-echo -e "${GREEN}[3/5] Installation des fichiers système...${NC}"
-sudo cp qemu_launcher /usr/local/bin/
-sudo cp quemugui.py /usr/local/bin/qemugui
+# 3. Installation
+echo -e "${GREEN}[3/5] Installation des fichiers...${NC}"
+sudo cp "$SCRIPT_DIR/qemu_launcher" /usr/local/bin/
+sudo cp "$SCRIPT_DIR/quemugui.py" /usr/local/bin/qemugui
 sudo chmod +x /usr/local/bin/qemugui
 
-# 4. Création du raccourci menu (.desktop)
-echo -e "${GREEN}[4/5] Création du raccourci menu...${NC}"
+# 4. Menu Desktop
+echo -e "${GREEN}[4/5] Création du raccourci...${NC}"
 cat <<EOF | sudo tee /usr/share/applications/qemugui.desktop > /dev/null
 [Desktop Entry]
 Name=QEMU GUI
-Comment=Gestionnaire de VM rapide
 Exec=/usr/local/bin/qemugui
 Icon=system-run
 Type=Application
@@ -47,9 +42,4 @@ Categories=System;Emulator;
 Terminal=false
 EOF
 
-# 5. Finalisation
-echo -e "${GREEN}[5/5] Finalisation...${NC}"
-echo -e "${BLUE}==============================================${NC}"
-echo -e "${GREEN}Installation terminée avec succès !${NC}"
-echo -e "Lancez l'application via votre menu ou tapez : ${BLUE}qemugui${NC}"
-echo -e "${BLUE}==============================================${NC}"
+echo -e "${GREEN}[5/5] Terminé ! Tape 'qemugui' pour lancer.${NC}"
