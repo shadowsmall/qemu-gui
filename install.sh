@@ -1,4 +1,4 @@
-#!/bin/bash
+u#!/bin/bash
 
 # Couleurs pour le terminal
 GREEN='\033[0;32m'
@@ -32,7 +32,7 @@ fi
 
 # 3. Installation des fichiers dans /usr/local/bin
 echo -e "${GREEN}[3/5] Installation des exécutables...${NC}"
-sudo cp "$BASE_DIR/qemu_launcher" /usr/local/bin/
+sudo cp "$BASE_DIR/qemu_launcher" /usr/local/bin/qemu_launcher.cpp
 sudo cp "$BASE_DIR/quemugui.py" /usr/local/bin/qemugui
 sudo chmod +x /usr/local/bin/qemugui
 
