@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import sys, subprocess, os, sqlite3
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QPushButton, QFileDialog, QListWidget,
-                             QSpinBox, QGroupBox, QLineEdit, QTextEdit, QCheckBox, QComboBox)
+                             QSpinBox, QGroupBox, QLineEdit, QTextEdit, QCheckBox, QComboBox, QMainWindow)
 
 class QemuStation(QWidget):
     def __init__(self):
@@ -17,13 +17,13 @@ class QemuStation(QWidget):
     def init_db(self):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS vms 
+        cursor.execute('''CREATE TABLE IF NOT EXISTS vms
             (id INTEGER PRIMARY KEY, name TEXT, qcow2 TEXT, iso TEXT, ram INTEGER, cpu INTEGER, uefi INTEGER, kbd TEXT)''')
         conn.commit()
         conn.close()
 
     def initUI(self):
-        self.setWindowTitle('QEMU-gui')
+        self.setWindowTitle('QEMU Manager Pro - Advanced Edition')
         self.setMinimumSize(1100, 800)
         self.setStyleSheet("background-color: #121212; color: #e0e0e0; font-family: sans-serif;")
 
@@ -53,7 +53,7 @@ class QemuStation(QWidget):
         # Config Avancée
         config_box = QGroupBox("Parametres de la Machine")
         config_lay = QVBoxLayout()
-        
+
         self.in_name = QLineEdit(); self.in_name.setPlaceholderText("Nom de la VM...")
         config_lay.addWidget(self.in_name)
 
@@ -61,7 +61,7 @@ class QemuStation(QWidget):
         f_lay.addWidget(QPushButton("Fichier QCOW2", clicked=self.select_qcow2))
         f_lay.addWidget(QPushButton("Image ISO", clicked=self.select_iso))
         config_lay.addLayout(f_lay)
-        
+
         self.label_info = QLabel("Aucun fichier choisi")
         self.label_info.setStyleSheet("color: #ce9178;")
         config_lay.addWidget(self.label_info)
@@ -142,12 +142,27 @@ class QemuStation(QWidget):
             conn.commit(); conn.close(); self.load_library()
 
     def run_vm(self):
-        if not self.qcow2_path: return
-        uefi = "1" if self.check_uefi.isChecked() else "0"
+        engine = "/usr/local/bin/qemu_launcher"
+        if not os.path.exists(engine):
+            engine = "./qemu_launcher"
+
+        disk = self.qcow2_path
+        ram = str(self.ram_in.value())
+        cpu = str(self.cpu_in.value())
         iso = self.iso_path if self.iso_path else "None"
-        cmd = ["./qemu_launcher", self.qcow2_path, str(self.ram_in.value()), str(self.cpu_in.value()), iso, uefi, self.combo_kbd.currentText()]
-        self.log.append(f"Lancement de {self.in_name.text()}...")
-        subprocess.Popen(cmd)
+        uefi = "1" if self.check_uefi.isChecked() else "0"
+        kbd = self.combo_kbd.currentText()
+
+        cmd = [engine, disk, ram, cpu, iso, uefi, kbd]
+
+        try:
+            subprocess.Popen(cmd)
+            self.log.append("🚀 Commande envoyée au moteur C++")
+        except Exception as e:
+            self.log.append(f"❌ Erreur : {e}")
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv); ex = QemuStation(); ex.show(); sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    ex = QemuStation()
+    ex.show()
+    sys.exit(app.exec())
