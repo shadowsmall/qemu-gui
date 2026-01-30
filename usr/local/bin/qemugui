@@ -2,7 +2,7 @@
 import sys, subprocess, os, sqlite3
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QPushButton, QFileDialog, QListWidget,
-                             QSpinBox, QGroupBox, QLineEdit, QTextEdit, QCheckBox, QComboBox, QMainWindow)
+                             QSpinBox, QGroupBox, QLineEdit, QTextEdit, QCheckBox, QComboBox)
 
 class QemuStation(QWidget):
     def __init__(self):
@@ -23,26 +23,25 @@ class QemuStation(QWidget):
         conn.close()
 
     def initUI(self):
-        self.setWindowTitle('QEMUGUI')
+        self.setWindowTitle('QEMUGUI - Advanced')
         self.setMinimumSize(1100, 800)
         self.setStyleSheet("background-color: #121212; color: #e0e0e0; font-family: sans-serif;")
 
         main_layout = QHBoxLayout()
 
-        # --- GAUCHE (Bibliothèque) ---
+        # --- GAUCHE ---
         left_panel = QVBoxLayout()
         left_panel.addWidget(QLabel("BIBLIOTHEQUE"))
         self.vm_list = QListWidget()
-        self.vm_list.setStyleSheet("background-color: #1e1e1e; border: 1px solid #333;")
         self.vm_list.itemClicked.connect(self.load_selected_vm)
         left_panel.addWidget(self.vm_list)
         left_panel.addWidget(QPushButton("Supprimer le profil", clicked=self.delete_vm, styleSheet="background-color: #442222;"))
         main_layout.addLayout(left_panel, 1)
 
-        # --- DROITE (Configuration) ---
+        # --- DROITE ---
         right_panel = QVBoxLayout()
 
-        # Nouveau Disque
+        # Outils Disque
         tool_box = QGroupBox("Outils Disque")
         tool_lay = QHBoxLayout()
         self.new_size_in = QSpinBox(); self.new_size_in.setRange(1, 2000); self.new_size_in.setValue(25)
@@ -50,10 +49,9 @@ class QemuStation(QWidget):
         tool_lay.addWidget(QPushButton("CREER QCOW2", clicked=self.create_new_qcow2, styleSheet="color: #4ec9b0;"))
         tool_box.setLayout(tool_lay); right_panel.addWidget(tool_box)
 
-        # Config Avancée
-        config_box = QGroupBox("Parametres de la Machine")
+        # Config
+        config_box = QGroupBox("Parametres")
         config_lay = QVBoxLayout()
-
         self.in_name = QLineEdit(); self.in_name.setPlaceholderText("Nom de la VM...")
         config_lay.addWidget(self.in_name)
 
@@ -66,14 +64,24 @@ class QemuStation(QWidget):
         self.label_info.setStyleSheet("color: #ce9178;")
         config_lay.addWidget(self.label_info)
 
-        # Options UEFI et Clavier
+        # --- OPTIONS VRAM ET SECURE BOOT ---
+        adv_lay = QHBoxLayout()
+        adv_lay.addWidget(QLabel("VRAM :"))
+        self.combo_vram = QComboBox()
+        self.combo_vram.addItems(["64", "128", "256", "512"])
+        self.combo_vram.setCurrentText("128")
+        adv_lay.addWidget(self.combo_vram)
+
+        self.check_sboot = QCheckBox("Secure Boot")
+        adv_lay.addWidget(self.check_sboot)
+        config_lay.addLayout(adv_lay)
+
+        # UEFI et Clavier
         opt_lay = QHBoxLayout()
-        self.check_uefi = QCheckBox("Activer UEFI (OVMF)")
+        self.check_uefi = QCheckBox("Activer UEFI")
         self.combo_kbd = QComboBox()
         self.combo_kbd.addItems(["fr", "en-us", "be"])
-        opt_lay.addWidget(self.check_uefi)
-        opt_lay.addWidget(QLabel("Clavier :"))
-        opt_lay.addWidget(self.combo_kbd)
+        opt_lay.addWidget(self.check_uefi); opt_lay.addWidget(QLabel("Clavier :")); opt_lay.addWidget(self.combo_kbd)
         config_lay.addLayout(opt_lay)
 
         res_lay = QHBoxLayout()
@@ -83,10 +91,10 @@ class QemuStation(QWidget):
         res_lay.addWidget(QLabel("CPU :")); res_lay.addWidget(self.cpu_in)
         config_lay.addLayout(res_lay)
 
-        config_lay.addWidget(QPushButton("ENREGISTRER LE PROFIL", clicked=self.save_vm, styleSheet="background-color: #0e639c; height: 35px;"))
+        config_lay.addWidget(QPushButton("ENREGISTRER", clicked=self.save_vm, styleSheet="background-color: #0e639c;"))
         config_box.setLayout(config_lay); right_panel.addWidget(config_box)
 
-        self.log = QTextEdit(readOnly=True); self.log.setStyleSheet("background-color: #000; color: #0f0;")
+        self.log = QTextEdit(readOnly=True)
         right_panel.addWidget(self.log)
 
         self.btn_run = QPushButton("LANCER LA VM", clicked=self.run_vm)
@@ -96,7 +104,6 @@ class QemuStation(QWidget):
         main_layout.addLayout(right_panel, 2)
         self.setLayout(main_layout)
 
-    # --- FONCTIONS ---
     def create_new_qcow2(self):
         path, _ = QFileDialog.getSaveFileName(self, "Sauvegarder QCOW2", "", "QCOW2 (*.qcow2)")
         if path:
@@ -143,26 +150,20 @@ class QemuStation(QWidget):
 
     def run_vm(self):
         engine = "/usr/local/bin/qemu_launcher"
-        if not os.path.exists(engine):
-            engine = "./qemu_launcher"
-
-        disk = self.qcow2_path
-        ram = str(self.ram_in.value())
-        cpu = str(self.cpu_in.value())
-        iso = self.iso_path if self.iso_path else "None"
-        uefi = "1" if self.check_uefi.isChecked() else "0"
-        kbd = self.combo_kbd.currentText()
-
-        cmd = [engine, disk, ram, cpu, iso, uefi, kbd]
-
+        if not os.path.exists(engine): engine = "./qemu_launcher"
+        cmd = [
+            engine, self.qcow2_path, str(self.ram_in.value()), str(self.cpu_in.value()),
+            self.iso_path if self.iso_path else "None",
+            "1" if self.check_uefi.isChecked() else "0",
+            self.combo_kbd.currentText(),
+            self.combo_vram.currentText(),
+            "1" if self.check_sboot.isChecked() else "0"
+        ]
         try:
             subprocess.Popen(cmd)
-            self.log.append("🚀 Commande envoyée au moteur C++")
+            self.log.append("🚀 VM Lancée !")
         except Exception as e:
             self.log.append(f"❌ Erreur : {e}")
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = QemuStation()
-    ex.show()
-    sys.exit(app.exec())
+    app = QApplication(sys.argv); ex = QemuStation(); ex.show(); sys.exit(app.exec())
