@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=QEMU GUI
+Name=QEMUGUI
 Exec=/usr/local/bin/qemugui
-Icon=system-run
+Icon=qemugui
 Type=Application
-Categories=System;Emulator;
+Categories=System;
 Terminal=false
